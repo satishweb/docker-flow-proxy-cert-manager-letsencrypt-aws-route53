@@ -1,6 +1,6 @@
 # Docker container for Certificate Management 
-Integration with LetsEncrypt and AWS Route53 DNS for Docker Flow Proxy (https://proxy.dockerflow.com/)
-Inspired by: https://github.com/hamburml/docker-flow-letsencrypt
+- Integration with LetsEncrypt and AWS Route53 DNS for Docker Flow Proxy (https://proxy.dockerflow.com/)
+- Inspired by: https://github.com/hamburml/docker-flow-letsencrypt
 
 ## Simple Test Run
 
