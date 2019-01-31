@@ -1,0 +1,32 @@
+#!/bin/bash
+
+if [ -z $CERTBOT_EMAIL ]; then
+    printf "| CERTBOT_EMAIL is empty!"
+    exit 1
+fi
+
+set -e
+
+if [ "$DEBUG" = "1" ]; then
+	set -x
+	BASH_CMD_FLAGS='-x'
+fi
+
+printf "|---------------------------------------------------------------------------------------------\n";
+printf "| Starting Docker Flow: Let's Encrypt\n"
+
+# Load env vars
+printf "| ENTRYPOINT: \033[0;31mLoading docker secrets if found...\033[0m\n"
+for i in $(env|grep '/run/secrets')
+do
+	varName=$(echo $i|awk -F '[=]' '{print $1}'|sed 's/_FILE//')
+	varFile=$(echo $i|awk -F '[=]' '{print $2}')
+	eval "export $varName=$(cat $varFile)"
+done
+
+/bin/bash $BASH_CMD_FLAGS /scripts/certbot.sh > /var/log/dockeroutput.log
+
+printf "| ENTRYPOINT: \033[0;31mStarting supervisord (which starts and monitors cron) \033[0m\n"
+printf "|---------------------------------------------------------------------------------------------\n";
+
+/usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf

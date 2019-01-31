@@ -1,0 +1,70 @@
+#!/bin/bash
+
+# --------FUNCTIONS ---------
+
+sendCertsToProxy() {
+  # $1 = PROXY address list seperated by comma
+  # lets set PROXY_ADDRESS-update value for each proxy address to 1
+  [[ "$1" == "" ]] && echo "| ERR: Proxy servers list is empty" && exit 1
+
+  for d in $(cd $LE_DIR;find . -mindepth 1 -maxdepth 1 -type d|sed 's/^.\///;s/^*./wildcard./g'|tr '\n' ' ') ; do
+    
+    #concat certificates
+    DOMAIN_CERT_PATH=${LE_DIR}/${d}
+
+    if [[ -f "${DOMAIN_CERT_PATH}/cert.pem" ]]; then
+      cat ${DOMAIN_CERT_PATH}/cert.pem ${DOMAIN_CERT_PATH}/chain.pem ${DOMAIN_CERT_PATH}/privkey.pem > ${DOMAIN_CERT_PATH}/${d}.combined.pem 2>/dev/null
+    else
+      printf "| CERTS: ${d}: ${YELLOW}Domain certificates are not available yet, skipping ...${NC}\n"
+      break
+    fi
+
+    #send to proxy, retry up to 5 times with a timeout of $TIMEOUT seconds
+    for a in $(echo $1|sed 's/,/ /g')
+    do
+      echo "1" > /tmp/processed_$a
+    done
+
+    #times we tried curl
+    TRIES=0
+
+    #maximum number of retries
+    MAXRETRIES=5
+
+    exitcode=0
+    until [ $TRIES -ge $MAXRETRIES ]
+    do
+      TRIES=$[$TRIES+1]
+      for a in $(echo $1|sed 's/,/ /g')
+      do
+        updateStatus=$(cat /tmp/processed_$a)
+        if [[ "$updateStatus" == "1" ]]; then
+          printf "| CERTS: ${d}: ${MAGENTA}# ${TRIES}${NC}: Sending certificate to ${GREEN}${a} ... ${NC}"
+          curl --silent -i -XPUT \
+            --data-binary @${DOMAIN_CERT_PATH}/${d}.combined.pem \
+            "$a:8080/v1/docker-flow-proxy/cert?certName=${d}.combined.pem&distribute=true" > /dev/null 2>&1
+          exitcode="$?" 2>/dev/null
+          if [[ "$exitcode" != "0" ]]; then
+            printf "     ${RED}[ FAILED ]${NC}\n"
+          else
+            printf "     ${GREEN}[ OK ]${NC}\n"
+            echo "0" > /tmp/processed_$a
+          fi
+        fi
+      done
+      if [[ "$exitcode" != "0" ]]; then
+        if [[ "$TRIES" == "$MAXRETRIES" ]]; then
+          printf "| CERTS: ${d}: ${RED}Even after ${TRIES} attempts, at least one proxy service did not accept the certificate, next cron run will try again later${NC}\n"
+        else
+          printf "| CERTS: ${d}: ${MAGENTA}# ${TRIES}${NC}: ${YELLOW}At least one proxy service did not accept the certificate, retrying...${NC}\n"
+          sleep $TIMEOUT
+        fi
+      else
+        printf "| CERTS: ${d}: ${GREEN}Certificate received by all proxy services: ${PROXY_ADDRESS} ${NC}\n"
+        break
+      fi
+    done
+  done
+}
+
+# --------- END -------------
