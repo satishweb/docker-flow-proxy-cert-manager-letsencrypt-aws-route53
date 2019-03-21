@@ -88,10 +88,10 @@ for d in $(env | grep 'DOMAIN_'); do
     domains=$(echo $dom|sed 's/-d / /g')
     printf "| CERTS: Processing Domain(s): ${YELLOW}${domains}${NC}\n"
     if [ -d "$DOMAIN_DIR" ]; then
-      printf "| CERTS: ${DOMAIN_DIR_NAME}: CERTBOT CMD: ${MAGENTA}certbot certonly %s --cert-name %s ${NC}\n" "${args[*]}" "${DOMAIN_DIR_NAME}";
+      printf "| CERTS: ${DOMAIN_DIR_NAME}: CERTBOT CMD: ${MAGENTA}certbot certonly %s --cert-name %s ${NC}\n" "${args[*]}" "${DOMAIN_DIR_NAME}" "$dom";
       $CERTBOT_CMD certonly "${args[@]}" --cert-name "${DOMAIN_DIR_NAME}" $dom 2>&1 | sed "s/^/| CERTS: ${DOMAIN_DIR_NAME}: CERTBOT: /"
     else
-      printf "| CERTS: ${DOMAIN_DIR_NAME}: CERTBOT CMD: ${MAGENTA}certbot certonly %s ${NC}\n" "${args[*]}";
+      printf "| CERTS: ${DOMAIN_DIR_NAME}: CERTBOT CMD: ${MAGENTA}certbot certonly %s ${NC}\n" "${args[*]}" "$dom";
       $CERTBOT_CMD certonly "${args[@]}" $dom 2>&1 | sed "s/^/| CERTS: ${DOMAIN_DIR_NAME}: CERTBOT: /"
     fi
   fi
