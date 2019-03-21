@@ -25,12 +25,12 @@ do
 done
 
 # Disable certbot if CERTBOT_DISABLE is defined
-if [ "x$CERTBOT_DISABLE" = "x" ]; then
-	printf "| ENTRYPOINT: \032[0;31mCertificate manager is enabled.\033[0m\n"
+if [ "x$CERTMGR_DISABLE" = "x" ]; then
+	printf "| ENTRYPOINT: \033[0;31mCertificate manager is enabled.\033[0m\n"
 	/bin/bash $BASH_CMD_FLAGS /scripts/certbot.sh > /var/log/dockeroutput.log
 else
 	printf "| ENTRYPOINT: \033[0;31mCERTMGR_DISABLE variable is declared, stopping right here and sleeping forever\033[0m\n"
-	printf "| ENTRYPOINT: \033[0;33mTo enable certificate management, please remove CERTBOT_DISABLE variable declaration and start the container again\033[0m\n"
+	printf "| ENTRYPOINT: \033[0;33mTo enable certificate management, please remove CERTMGR_DISABLE variable declaration and start the container again\033[0m\n"
 	while true; do sleep 10000; done
 fi
 
