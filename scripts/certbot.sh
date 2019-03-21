@@ -52,6 +52,7 @@ for d in $(env | grep 'DOMAIN_'); do
   mainDomain=$(echo $varValue|awk -F '[,]' '{print $1}')
   # Convert wildcard certificate name from *.example.com to wildcard.example.com
   CERT_NAME=$(echo $mainDomain|sed 's/^*./wildcard./g')
+  printf "| CERTS: ${varName}: ${GREEN}Primary domain: $mainDomain ${NC}\n"
   printf "| CERTS: ${varName}: ${YELLOW}Validating domain(s): $varValue ${NC}\n"
   DOMAIN_DIR="${LE_DIR}/${CERT_NAME}";
   dom="";
