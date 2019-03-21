@@ -6,8 +6,8 @@
 
 ```
 docker run --rm -it --name cert-manager \
-    -e DOMAIN_1="('test.yourdomain.com','test1.yourdomain.com')"\
-    -e DOMAIN_2="('test2.yourdomain.com')"\
+    -e DOMAIN_1="test.yourdomain.com,test1.yourdomain.com"\
+    -e DOMAIN_2="test2.yourdomain.com"\
     -e CERTBOT_EMAIL="webmaster@yourdomain.com" \
     -e PROXY_ADDRESS="proxy" \
     -e CERTBOT_CRON_RENEW="('0 3 * * *' '0 15 * * *')"\
@@ -29,8 +29,8 @@ satishweb/docker-flow-proxy-cert-manager-letsencrypt-aws-route53:latest
 	network:
 	  - proxy
 	environment:
-      - DOMAIN_1="('test.yourdomain.com','test1.yourdomain.com')"
-      - DOMAIN_2="('test2.yourdomain.com')"
+      - DOMAIN_1="test.yourdomain.com,test1.yourdomain.com"
+      - DOMAIN_2="test2.yourdomain.com"
       - CERTBOT_EMAIL=webmaster@yourdomain.com
       - PROXY_ADDRESS=proxy
       - CERTBOT_CRON_RENEW="('0 3 * * *' '0 15 * * *')"
