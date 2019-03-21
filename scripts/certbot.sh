@@ -52,7 +52,7 @@ for d in $(env | grep 'DOMAIN_'); do
   mainDomain=$(echo $varValue|awk -F '[,]' '{print $1}')
   # Convert wildcard certificate name from *.example.com to wildcard.example.com
   CERT_NAME=$(echo $mainDomain|sed 's/^*./wildcard./g')
-  printf "| CERTS: ${CERT_NAME}: ${YELLOW}Validated domain: ${mainDomain} ${NC}\n"
+  printf "| CERTS: ${varName}: ${YELLOW}Validating domain(s): $varValue ${NC}\n"
   DOMAIN_DIR="${LE_DIR}/${CERT_NAME}";
   dom="";
   for i in $(echo $varValue|sed 's/,/ /g')
@@ -67,16 +67,16 @@ for d in $(env | grep 'DOMAIN_'); do
         exitcode=$?
 
         if [ $TRIES -eq $MAXRETRIES ]; then
-          printf "| CERTS: ${CERT_NAME}: ${RED}Unable to verify domain ownership after ${TRIES} attempts.${NC}\n"
+          printf "| CERTS: ${varName}: $i: ${RED}Unable to verify domain ownership after ${TRIES} attempts.${NC}\n"
         else
-          printf "| CERTS: ${CERT_NAME}: ${MAGENTA}# ${TRIES}${NC}: ${RED}Unable to verify domain ownership, we try again in ${TIMEOUT} seconds.${NC}\n"
+          printf "| CERTS: ${varName}: $i: ${MAGENTA}# ${TRIES}${NC}: ${RED}Unable to verify domain ownership, we try again in ${TIMEOUT} seconds.${NC}\n"
           sleep $TIMEOUT
         fi
       fi
     done
 
     if [ $exitcode -eq 0 ]; then
-      printf "| CERTS: ${CERT_NAME}: ${GREEN}Domain successfully validated${NC}\n"
+      printf "| CERTS: ${varName}: ${GREEN}Domain successfully validated: $i ${NC}\n"
       dom="$dom -d $i"
       echo '1' > /tmp/validation_complete_${CERT_NAME}
     fi
@@ -86,13 +86,13 @@ for d in $(env | grep 'DOMAIN_'); do
   if [ -n "$dom" ]; then
     # check if DOMAIN_DIR exists, if it exists use --cert-name to prevent 0001 0002 0003 folders
     domains=$(echo $dom|sed 's/-d / /g')
-    printf "| CERTS: Processing Domain(s): ${YELLOW}${domains}${NC}\n"
+    printf "| CERTS: ${varName}: Using domain(s) for generating certificate: ${YELLOW}${domains}${NC}\n"
     if [ -d "$DOMAIN_DIR" ]; then
-      printf "| CERTS: ${DOMAIN_DIR_NAME}: CERTBOT CMD: ${MAGENTA}certbot certonly %s --cert-name %s ${NC}\n" "${args[*]}" "${DOMAIN_DIR_NAME}" "$dom";
-      $CERTBOT_CMD certonly "${args[@]}" --cert-name "${DOMAIN_DIR_NAME}" $dom 2>&1 | sed "s/^/| CERTS: ${DOMAIN_DIR_NAME}: CERTBOT: /"
+      printf "| CERTS: ${varName}: CERTBOT CMD: ${MAGENTA}certbot certonly %s --cert-name %s ${NC}\n" "${args[*]}" "${CERT_NAME} $dom";
+      $CERTBOT_CMD certonly "${args[@]}" --cert-name "${CERT_NAME}" $dom 2>&1 | sed "s/^/| CERTS: ${varName}: CERTBOT: /"
     else
-      printf "| CERTS: ${DOMAIN_DIR_NAME}: CERTBOT CMD: ${MAGENTA}certbot certonly %s ${NC}\n" "${args[*]}" "$dom";
-      $CERTBOT_CMD certonly "${args[@]}" $dom 2>&1 | sed "s/^/| CERTS: ${DOMAIN_DIR_NAME}: CERTBOT: /"
+      printf "| CERTS: ${varName}: CERTBOT CMD: ${MAGENTA}certbot certonly %s ${NC}\n" "${args[*]} $dom";
+      $CERTBOT_CMD certonly "${args[@]}" $dom 2>&1 | sed "s/^/| CERTS: ${varName}: CERTBOT: /"
     fi
   fi
 done
