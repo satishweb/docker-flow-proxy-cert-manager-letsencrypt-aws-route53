@@ -58,7 +58,7 @@ satishweb/docker-flow-proxy-cert-manager-letsencrypt-aws-route53:latest
       - "com.satishweb.description=Certificate Manager"
 ```
 ## Run certbot container but disable its execution
-- Add `CERTBOT_DISABLE=yes` variable to the docker environment list
+- Add `CERTMGR_DISABLE=yes` variable to the docker environment list
 
 # Testing changes to scripts and Dockerfile?
 ## Test the Dockerfile
