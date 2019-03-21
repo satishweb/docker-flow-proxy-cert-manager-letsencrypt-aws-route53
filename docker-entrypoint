@@ -34,6 +34,26 @@ else
 	while true; do sleep 10000; done
 fi
 
+# Check if AWS R53 variables are declared.
+if [ "x$AWS_ACCESS_KEY_ID" = "x" ]; then
+	printf "| ENTRYPOINT: \033[0;31mAWS_ACCESS_KEY_ID/AWS_ACCESS_KEY_ID_FILE variable is not declared\033[0m\n"
+	exit 1
+fi
+
+if [ "x$AWS_SECRET_ACCESS_KEY" = "x" ]; then
+	printf "| ENTRYPOINT: \033[0;31mAWS_SECRET_ACCESS_KEY/AWS_SECRET_ACCESS_KEY_FILE variable is not declared\033[0m\n"
+	exit 1
+fi
+
+if [ "x$AWS_HOSTED_ZONE_ID" = "x" ]; then
+	printf "| ENTRYPOINT: \033[0;31mAWS_HOSTED_ZONE_ID/AWS_HOSTED_ZONE_ID_FILE variable is not declared\033[0m\n"
+	exit 1
+fi
+
+if [ "x$AWS_REGION" = "x" ]; then
+	export AWS_REGION=us-east-1
+fi
+
 printf "| ENTRYPOINT: \033[0;31mStarting supervisord (which starts and monitors cron) \033[0m\n"
 printf "|---------------------------------------------------------------------------------------------\n";
 
