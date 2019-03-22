@@ -49,6 +49,10 @@ fi
 for d in $(env | grep 'DOMAIN_'); do
   varName=$(echo $d|awk -F '[=]' '{print $1}')
   varValue=$(echo $d|sed "s/^${varName}=//")
+  if [[ "$varValue" == "" ]]; then
+    printf "| CERTS: ${YELLOW}${varName} value is empty, ignoring${NC}\n"
+    continue
+  fi
   mainDomain=$(echo $varValue|awk -F '[,]' '{print $1}')
   # Convert wildcard certificate name from *.example.com to wildcard.example.com
   CERT_NAME=$(echo $mainDomain|sed 's/^*./wildcard./g')
