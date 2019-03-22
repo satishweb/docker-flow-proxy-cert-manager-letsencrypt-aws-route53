@@ -62,6 +62,10 @@ for d in $(env | grep 'DOMAIN_'); do
   dom="";
   for i in $(echo $varValue|sed 's/,/ /g')
   do
+    if [[ "$i" == "" ]]; then
+      printf "| CERTS: ${YELLOW}${i} value is empty, ignoring${NC}\n"
+      continue
+    fi
     let exitcode=TRIES=0
     echo '0' > /tmp/validation_complete_${CERT_NAME}
     until [ $TRIES -ge $MAXRETRIES ]

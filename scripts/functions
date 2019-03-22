@@ -37,6 +37,10 @@ sendCertsToProxy() {
       TRIES=$[$TRIES+1]
       for a in $(echo $1|sed 's/,/ /g')
       do
+        if [[ "$a" == "" ]]; then
+          printf "| CERTS: ${d}: ${YELLOW}${a} value is empty, ignoring${NC}\n"
+          continue
+        fi
         updateStatus=$(cat /tmp/processed_$a)
         if [[ "$updateStatus" == "1" ]]; then
           printf "| CERTS: ${d}: ${MAGENTA}# ${TRIES}${NC}: Sending certificate to ${GREEN}${a} ... ${NC}"
