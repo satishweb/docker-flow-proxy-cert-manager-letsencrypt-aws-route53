@@ -111,7 +111,7 @@ __updateProxies() {
         fi
       else
         printf "| CERTS: ${d}: ${GREEN}Certs received by all proxies:${NC}\n";
-        printf"|             ${GREEN}${1} ${NC}\n"
+        printf "|             ${GREEN}${1} ${NC}\n"
         break
       fi
     done
