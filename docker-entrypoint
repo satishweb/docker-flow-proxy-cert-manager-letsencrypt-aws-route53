@@ -1,60 +1,125 @@
 #!/bin/bash
 
-if [ -z $CERTBOT_EMAIL ]; then
-    printf "| CERTBOT_EMAIL is empty!"
+if [[ "$DEBUG" = "1" ]]; then
+  set -x
+  BASH_CMD_FLAGS='-x'
+fi
+
+# Functions
+__validations() {
+  # Check if AWS R53 variables are declared.
+  if [[ "$AWS_ACCESS_KEY_ID" == "" ]]; then
+    printf "| ENTRYPOINT: ${RED}AWS_ACCESS_KEY_ID/AWS_ACCESS_KEY_ID_FILE ";
+    printf "variable is not declared${NC}\n";
+    sleep 120 # To avoid to frequent service restarts
     exit 1
-fi
+  fi
 
-set -e
+  if [[ "$AWS_SECRET_ACCESS_KEY" == "" ]]; then
+    printf "| ENTRYPOINT: ${RED}AWS_SECRET_ACCESS_KEY/";
+    printf "AWS_SECRET_ACCESS_KEY_FILE variable is not declared${NC}\n";
+    sleep 120 # To avoid to frequent service restarts
+    exit 1
+  fi
 
-if [ "$DEBUG" = "1" ]; then
-	set -x
-	BASH_CMD_FLAGS='-x'
-fi
+  if [[ "$AWS_HOSTED_ZONE_ID" == "" ]]; then
+    printf "| ENTRYPOINT: ${RED}AWS_HOSTED_ZONE_ID/";
+    printf "AWS_HOSTED_ZONE_ID_FILE variable is not declared${NC}\n";
+    sleep 120 # To avoid to frequent service restarts
+    exit 1
+  fi
 
-printf "|---------------------------------------------------------------------------------------------\n";
-printf "| Starting Docker Flow: Let's Encrypt\n"
+  if [[ "$AWS_REGION" == "" ]]; then
+    export AWS_REGION=us-east-1
+    printf "| ENTRYPOINT: ${YELLOW}AWS_REGION ";
+    printf "variable is not declared, using '${AWS_REGION}' as default${NC}\n";
+  fi
 
-# Load env vars
-printf "| ENTRYPOINT: \033[0;31mLoading docker secrets if found...\033[0m\n"
-for i in $(env|grep '/run/secrets')
-do
-	varName=$(echo $i|awk -F '[=]' '{print $1}'|sed 's/_FILE//')
-	varFile=$(echo $i|awk -F '[=]' '{print $2}')
-	eval "export $varName=$(cat $varFile)"
-done
+  if [ -z $CERTBOT_EMAIL ]; then
+    printf "| ENTRYPOINT: ${RED}CERTBOT_EMAIL ";
+    printf "variable is not declared${NC}\n";
+    sleep 120 # To avoid to frequent service restarts
+    exit 1
+  fi
 
-# Disable certbot if CERTBOT_DISABLE is defined
-if [ "x$CERTMGR_DISABLE" = "x" ]; then
-	printf "| ENTRYPOINT: \033[0;31mCertificate manager is enabled.\033[0m\n"
-	/bin/bash $BASH_CMD_FLAGS /scripts/certbot.sh > /var/log/dockeroutput.log
+  if [[ "$PROXY_PORT" == "" ]]; then
+    export PROXY_PORT=8080
+    printf "| ENTRYPOINT: ${YELLOW}PROXY_PORT ";
+    printf "variable is not declared, using '${PROXY_PORT}' as default${NC}\n";
+  fi
+
+  if [[ "$PROXY_ADDRESS" == "" ]]; then
+    export PROXY_ADDRESS=proxy
+    printf "| ENTRYPOINT: ${YELLOW}PROXY_ADDRESS ";
+    printf "variable is not declared, using '${PROXY_ADDRESS}' as default${NC}\n";
+  fi
+}
+
+__loadSecrets() {
+  # Load env vars
+  printf "| ENTRYPOINT: ${RED}Loading docker secrets if exists...${NC}\n";
+  for i in $(env|grep '/run/secrets')
+  do
+      varName=$(echo $i|awk -F '[=]' '{print $1}'|sed 's/_FILE//')
+      varFile=$(echo $i|awk -F '[=]' '{print $2}')
+      exportCmd="export $varName=$(cat $varFile)"
+      printf "| ENTRYPOINT: Exporting var: $varName\n";
+      eval "${exportCmd}"
+  done
+}
+
+__checkCertmgrMode() {
+  # Disable certbot if CERTBOT_DISABLE is defined
+  if [[ "$CERTMGR_DISABLE" == "" ]]; then
+    printf "| ENTRYPOINT: ${RED}Certificate manager is enabled.${NC}\n";
+  else
+    printf "| ENTRYPOINT: ${RED}CERTMGR_DISABLE variable is declared, \n";
+    printf "|             ${RED}To avoid container relaunches, ";
+    printf "i will sleep forever${NC}\n";
+    printf "| ENTRYPOINT: ${YELLOW}To enable certificate management,${NC}\n";
+    printf "|             ${YELLOW}please remove CERTMGR_DISABLE env${NC}\n";
+    printf "|             ${YELLOW}variable arg from docker run cmd${NC}\n";
+    printf "|             ${YELLOW}or stack and start again${NC}\n";
+    # Set container status to healthy to avoid service restarts when intention
+    # was to just disable certificate manager
+    echo 0 >/tmp/status # For healthcheck
+    while true; do sleep 10000; done
+  fi
+}
+
+__printLine() {
+  printf "|----------------------------------------------------------------\n";
+}
+
+## Main
+
+# Colors
+export RED='\033[1m\033[31m'
+export GREEN='\033[1m\033[32m'
+export YELLOW='\033[1m\033[33m'
+export MAGENTA='\033[1m\033[35m'
+export CYAN='\033[1m\033[36m'
+export NC='\033[0m' # No Color
+
+# Start with healthy state
+echo 0 >/tmp/status # For healthcheck
+
+__printLine
+printf "| ENTRYPOINT: Starting Docker Flow - Let's Encrypt\n"
+__printLine
+__loadSecrets
+__validations
+__checkCertmgrMode
+__printLine
+
+# Check if app-config is present
+if [ -f /app-config ]; then
+    # We expect that app-config handles the launch of app command
+    printf "| ENTRYPOINT: Executing app-config...\n";
+    . /app-config "$@"
 else
-	printf "| ENTRYPOINT: \033[0;31mCERTMGR_DISABLE variable is declared, stopping right here and sleeping forever\033[0m\n"
-	printf "| ENTRYPOINT: \033[0;33mTo enable certificate management, please remove CERTMGR_DISABLE variable declaration and start the container again\033[0m\n"
-	while true; do sleep 10000; done
+    # Let default CMD run if app-config is missing
+    printf "| ENTRYPOINT: Custom script app-config was not available\n";
+    printf "| ENTRYPOINT: Executing ${GREEN}'$@'${NC}\n";
+    exec $@
 fi
-
-# Check if AWS R53 variables are declared.
-if [ "x$AWS_ACCESS_KEY_ID" = "x" ]; then
-	printf "| ENTRYPOINT: \033[0;31mAWS_ACCESS_KEY_ID/AWS_ACCESS_KEY_ID_FILE variable is not declared\033[0m\n"
-	exit 1
-fi
-
-if [ "x$AWS_SECRET_ACCESS_KEY" = "x" ]; then
-	printf "| ENTRYPOINT: \033[0;31mAWS_SECRET_ACCESS_KEY/AWS_SECRET_ACCESS_KEY_FILE variable is not declared\033[0m\n"
-	exit 1
-fi
-
-if [ "x$AWS_HOSTED_ZONE_ID" = "x" ]; then
-	printf "| ENTRYPOINT: \033[0;31mAWS_HOSTED_ZONE_ID/AWS_HOSTED_ZONE_ID_FILE variable is not declared\033[0m\n"
-	exit 1
-fi
-
-if [ "x$AWS_REGION" = "x" ]; then
-	export AWS_REGION=us-east-1
-fi
-
-printf "| ENTRYPOINT: \033[0;31mStarting supervisord (which starts and monitors cron) \033[0m\n"
-printf "|---------------------------------------------------------------------------------------------\n";
-
-/usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf

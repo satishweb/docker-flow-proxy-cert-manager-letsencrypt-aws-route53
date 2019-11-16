@@ -1,17 +1,20 @@
-# Docker container for Certificate Management 
+# Docker Image for Certificate Management using Lets Encrypt
+
+## Features
 - Integration with LetsEncrypt and AWS Route53 DNS for Docker Flow Proxy (https://proxy.dockerflow.com/)
 - Inspired by: https://github.com/hamburml/docker-flow-letsencrypt
+- Cronjob to renew certificate every day if certificate is near expiry
+- Support for custom script execution (/app-config)
+- Support for linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6
+- Alpine based tiny images
 
 # How to use
-## Simple Test Run
-
 ```
 docker run --rm -it --name cert-manager \
     -e DOMAIN_1="test.yourdomain.com,test1.yourdomain.com"\
     -e DOMAIN_2="test2.yourdomain.com"\
     -e CERTBOT_EMAIL="webmaster@yourdomain.com" \
     -e PROXY_ADDRESS="proxy" \
-    -e CERTBOT_CRON_RENEW="('0 3 * * *' '0 15 * * *')"\
     -e CERTBOTMODE="staging" \
     -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} \
     -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} \
@@ -34,7 +37,6 @@ satishweb/docker-flow-proxy-cert-manager-letsencrypt-aws-route53:latest
       - DOMAIN_2="test2.yourdomain.com"
       - CERTBOT_EMAIL=webmaster@yourdomain.com
       - PROXY_ADDRESS=proxy
-      - CERTBOT_CRON_RENEW="('0 3 * * *' '0 15 * * *')"
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - AWS_REGION=${AWS_REGION}
@@ -43,6 +45,8 @@ satishweb/docker-flow-proxy-cert-manager-letsencrypt-aws-route53:latest
       # Comment above line to go in production mode
     volumes:
       - ${DATA_DIR}/certs:/etc/letsencrypt
+      # Add your custom code to be run 
+      # - ./app-config:/app-config
     deploy:
       replicas: 1
       # labels:
@@ -57,10 +61,10 @@ satishweb/docker-flow-proxy-cert-manager-letsencrypt-aws-route53:latest
     labels:
       - "com.satishweb.description=Certificate Manager"
 ```
+
 ## Run certbot container but disable its execution
 - Add `CERTMGR_DISABLE=yes` variable to the docker environment list
 
-# Testing changes to scripts and Dockerfile?
 ## Test the Dockerfile
 ```
 docker build . --no-cache -t test-cert-manager
