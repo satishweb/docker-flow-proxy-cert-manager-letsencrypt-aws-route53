@@ -82,7 +82,6 @@ __checkCertmgrMode() {
     printf "|             ${YELLOW}or stack and start again${NC}\n";
     # Set container status to healthy to avoid service restarts when intention
     # was to just disable certificate manager
-    echo 0 >/tmp/status # For healthcheck
     while true; do sleep 10000; done
   fi
 }
@@ -102,7 +101,6 @@ export CYAN='\033[1m\033[36m'
 export NC='\033[0m' # No Color
 
 # Start with healthy state
-echo 0 >/tmp/status # For healthcheck
 
 __printLine
 printf "| ENTRYPOINT: Starting Docker Flow - Let's Encrypt\n"

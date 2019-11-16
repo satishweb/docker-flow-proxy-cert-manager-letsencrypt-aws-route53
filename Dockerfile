@@ -30,6 +30,3 @@ RUN chmod u+x /docker-entrypoint /certbot.sh
 # Run the command on container startup
 ENTRYPOINT ["/docker-entrypoint"]
 CMD [ "/bin/bash", "-c", "/certbot.sh" ]
-
-# Healthcheck
-HEALTHCHECK --interval=5m --timeout=10s --start-period=10s CMD [[ $(cat /tmp/status|grep -q '1') ]] || exit 1

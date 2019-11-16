@@ -179,7 +179,6 @@ __validateDomainAndGenCerts() {
       if [ $TRIES -eq $MAX_RETRIES ]; then
         printf "| CERTS: ${parentDomain}: ${RED}Unable to verify parent domain";
         printf " ownership after ${TRIES} attempts.${NC}\n";
-        echo 1 >/tmp/status # For healthcheck
       else
         printf "| CERTS: ${parentDomain}: ${MAGENTA}# ${TRIES}: ";
         printf "Unable to verify parent domain ownership. ";
@@ -191,7 +190,6 @@ __validateDomainAndGenCerts() {
 
   if [[ "$exitcode" != "0" ]]; then
     # Domain validation failed, no point continuring further
-    echo 1 >/tmp/status # For healthcheck
     return 1
   fi
 
@@ -215,8 +213,6 @@ __validateDomainAndGenCerts() {
   if [[ "${domainsAsSAN}" != "" ]]; then
     # Continue only if we have at least one domain validated
     __getCertificates "$domainsAsSAN" "${mainDomain}" "${2}"
-  else
-    echo 1 >/tmp/status # For healthcheck
   fi
 }
 
@@ -244,8 +240,6 @@ __getCertificates() {
     fi
     printf "| CERTS: ${3}: CMD: ${MAGENTA}${cbCmd}${NC}\n";
     eval ${cbCmd} 2>&1 | sed "s/^/| CERTS: ${3}: CERTBOT: /"
-  else
-    echo 1 >/tmp/status # For healthcheck
   fi
 }
 
@@ -284,9 +278,8 @@ __generateProxyUrls() {
   # Lets generate proxy host address urls array
   proxyPath="v1/docker-flow-proxy/cert"
   proxyServerUrls=""
-  for a in $(echo $1\
-                |awk -F '[,]' '{print $1}'\
-                |awk -F '[.]' '{print $(NF-1)"."$(NF)}')
+  for a in $(echo $1|sed 's/,/ /g')
+  #$(echo $1|awk -F '[,]' '{print $1}'|awk -F '[.]' '{print $(NF-1)"."$(NF)}')
   do
     # Lets check if proxy address is a url or hostname with port specified
     # Use default if not specified
@@ -300,14 +293,12 @@ __generateProxyUrls() {
       host=$(echo $i|awk -F '[:]' '{print $1}')
       port=$(echo $i|awk -F '[:]' '{print $2}')
       if ! [[ $port =~ ^[0-9]+$ ]]; then
-        # Port is not a number, lets ignore this host
         echo "| ${RED}ERR: Proxy server has invalid port: ${a}${NC}"
-        echo 1 >/tmp/status # for healthcheck
         sleep 120
         exit 1
       fi
     else
-      # no url detected or port number, assume its just the hostname
+      # no url or port number in proxy address, assume its just the hostname
       # This satisfies the backward compatibility
       proxyServerUrls+=" http://${a}:${PROXY_PORT}/${proxyPath}"
     fi
@@ -324,7 +315,6 @@ __renewCertLoop() {
     if [[ "${failCount}" == "${maxFailCount}" ]]; then
       echo "| WARN: We exceed the maximum failures allowed: ${maxFailCount}"
       echo "|       This container is now unhealthy"
-      echo 1 >/tmp/status # For healthcheck
     fi
     printf "| CERTBOT: ${GREEN}Attempting to ";
     printf "renew certificates for all domains...${NC}\n"
@@ -339,7 +329,7 @@ __renewCertLoop() {
       RENEW_INTERVAL=300
       let failCount++
     fi
-    __updateProxies "${proxyServerUrls[@]}"
+    __updateProxies "${proxyServerUrls}"
     # Lets reset renew interval and renew certs back to original values
     RENEW_INTERVAL=86400 # 1 day
   done
