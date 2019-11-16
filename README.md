@@ -1,4 +1,4 @@
-# Docker Image for Certificate Management using Lets Encrypt
+# Lets Encrypt Docker Image for Docker Flow Proxy
 
 ## Features
 - Integration with LetsEncrypt and AWS Route53 DNS for Docker Flow Proxy (https://proxy.dockerflow.com/)
@@ -9,11 +9,13 @@
 - Alpine based tiny images
 
 # How to use
+## Docker run Command
 ```
 docker run --rm -it --name cert-manager \
-    -e DOMAIN_1="test.yourdomain.com,test1.yourdomain.com"\
-    -e DOMAIN_2="test2.yourdomain.com"\
-    -e CERTBOT_EMAIL="webmaster@yourdomain.com" \
+    -e DOMAIN_1="test.satishweb.com,test1.satishweb.com"\
+    -e DOMAIN_2="test2.satishweb.com"\
+    -e DOMAIN_3="*.satishweb.com"\
+    -e CERTBOT_EMAIL="webmaster@satishweb.com" \
     -e PROXY_ADDRESS="proxy" \
     -e CERTBOTMODE="staging" \
     -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} \
@@ -23,7 +25,23 @@ docker run --rm -it --name cert-manager \
     -v $(pwd)/data/letsencrypt:/etc/letsencrypt \
 satishweb/docker-flow-proxy-cert-manager-letsencrypt-aws-route53:latest
 ```
-
+## Variables list
+- `DOMAIN_*`: Comma separated subdomains list.
+  - All domains must have same parent domain
+  - When wildcard is used, only one domain is expected
+- `CERTBOT_EMAIL`: Email address used for lets encrypt registration
+- `PROXY_ADDRESS`: Comma separated list of Docker Flow Proxy addresses
+  - Accepted values are:
+    - `proxy`: Hostname of Docker Flow Proxy. It must be accessible from container
+    - `proxy.domain.com`: FQDN of Docker Flow Proxy
+    - `http://proxy:8080/v1/docker-flow-proxy/cert`: API path for Docker Flow Proxy
+- `CERTBOTMODE`: Declare this variable and lets encrypt goes into stage/test mode
+- `AWS_ACCESS_KEY_ID`: AWS Access Key from AWS Console - IAM
+- `AWS_SECRET_ACCESS_KEY`: AWS Secret Key from AWS Console - IAM
+- `AWS_REGION`: AWS Region
+- `AWS_HOSTED_ZONE_ID`: Domain DNS Zone ID from Route53 service
+- `CERTMGR_DISABLE`: set this to yes to disable cert manger but keep container running
+- `PROXY_PORT`: Set this to a custom number if you have changed defualt api port on Docker Flow Proxy
 ## Docker Stack configuration:
 
 ```
@@ -33,9 +51,10 @@ satishweb/docker-flow-proxy-cert-manager-letsencrypt-aws-route53:latest
     network:
       - proxy
     environment:
-      - DOMAIN_1="test.yourdomain.com,test1.yourdomain.com"
-      - DOMAIN_2="test2.yourdomain.com"
-      - CERTBOT_EMAIL=webmaster@yourdomain.com
+      - DOMAIN_1="test.satishweb.com,test1.satishweb.com"
+      - DOMAIN_2="test2.satishweb.com"
+      - DOMAIN_3="*.satishweb.com"
+      - CERTBOT_EMAIL=webmaster@satishweb.com
       - PROXY_ADDRESS=proxy
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
@@ -44,7 +63,7 @@ satishweb/docker-flow-proxy-cert-manager-letsencrypt-aws-route53:latest
       - CERTBOTMODE="staging"
       # Comment above line to go in production mode
     volumes:
-      - ${DATA_DIR}/certs:/etc/letsencrypt
+      - ./data/certs:/etc/letsencrypt
       # Add your custom code to be run 
       # - ./app-config:/app-config
     deploy:
@@ -61,24 +80,20 @@ satishweb/docker-flow-proxy-cert-manager-letsencrypt-aws-route53:latest
     labels:
       - "com.satishweb.description=Certificate Manager"
 ```
-
-## Run certbot container but disable its execution
-- Add `CERTMGR_DISABLE=yes` variable to the docker environment list
-
-## Test the Dockerfile
+## Build the Dockerfile
 ```
-docker build . --no-cache -t test-cert-manager
+docker build . --no-cache -t satishweb/docker-flow-proxy-cert-manager-letsencrypt-aws-route53
 ```
 ## Test the scripts without rebuilding container image
 - Set the AWS variables required by container and export it
-- Change yourdomain.com to your domain name in below code and run it
+- Change satishweb.com to your domain name in below code and run it
 ```
 docker run --rm -it --name cert-manager \
-    -e DOMAIN_1="test.yourdomain.com,test1.yourdomain.com"\
-    -e DOMAIN_2="test2.yourdomain.com"\
-    -e CERTBOT_EMAIL="webmaster@yourdomain.com" \
+    -e DOMAIN_1="test.satishweb.com,test1.satishweb.com"\
+    -e DOMAIN_2="test2.satishweb.com"\
+    -e DOMAIN_3="*.satishweb.com"\
+    -e CERTBOT_EMAIL="webmaster@satishweb.com" \
     -e PROXY_ADDRESS="proxy" \
-    -e CERTBOT_CRON_RENEW="('0 3 * * *' '0 15 * * *')"\
     -e CERTBOTMODE="staging" \
     -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} \
     -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} \
@@ -86,6 +101,6 @@ docker run --rm -it --name cert-manager \
     -e AWS_HOSTED_ZONE_ID=${AWS_HOSTED_ZONE_ID} \
     -v $(pwd)/data/letsencrypt:/etc/letsencrypt \
     -v $(pwd)/docker-entrypoint:/docker-entrypoint \
-    -v $(pwd)/scripts:/scripts \
+    -v $(pwd)/certbot.sh:/certbot.sh \
 satishweb/docker-flow-proxy-cert-manager-letsencrypt-aws-route53:latest
 ```

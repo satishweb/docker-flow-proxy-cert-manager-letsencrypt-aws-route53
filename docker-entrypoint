@@ -120,6 +120,6 @@ if [ -f /app-config ]; then
 else
     # Let default CMD run if app-config is missing
     printf "| ENTRYPOINT: Custom script app-config was not available\n";
-    printf "| ENTRYPOINT: Executing ${GREEN}'$@'${NC}\n";
+    printf "| ENTRYPOINT: Executing given parameters or default CMD\n";
     exec $@
 fi

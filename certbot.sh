@@ -62,7 +62,7 @@ __pushDomainCertToProxy() {
   do
     proxyName=$(echo $a|awk -F '[:/]' '{print $4"-"$5}')
     printf "| CERTS: ${1}:  ${MAGENTA}# ${TRIES}${NC}: ";
-    printf "Sending certificate to ${GREEN}${proxyName} ... ${NC}";
+    printf "Sending certificate to ${GREEN}${a} ...${NC}";
     curl --silent -i -XPUT \
       --data-binary @${LE_DIR}/${1}/${1}.combined.pem \
       "${a}?certName=${1}.combined.pem&distribute=true"\
@@ -168,8 +168,14 @@ __validateDomainAndGenCerts() {
       $CERTBOT_CMD certonly \
         --dry-run "${args[@]}" \
         -d "${parentDomain}" 2>/dev/null \
-      | grep -q 'The dry run was successful.' && break
+      | grep -q 'The dry run was successful.'
       exitcode=$?
+      if [[ "$exitcode" == "0" ]]; then
+        printf "| CERTS: ${2}: ${GREEN}Domain successfully validated: ";
+        printf "${parentDomain}${NC}\n"
+        touch /tmp/validation_complete_${parentDomain}
+        break
+      fi
       if [ $TRIES -eq $MAX_RETRIES ]; then
         printf "| CERTS: ${parentDomain}: ${RED}Unable to verify parent domain";
         printf " ownership after ${TRIES} attempts.${NC}\n";
@@ -183,12 +189,7 @@ __validateDomainAndGenCerts() {
     fi
   done
 
-  # If exitcode value is still 0, that means validation was successful
-  if [ $exitcode -eq 0 ]; then
-    printf "| CERTS: ${2}: ${GREEN}Domain successfully validated: ";
-    printf "${parentDomain}${NC}\n"
-    touch /tmp/validation_complete_${parentDomain}
-  else
+  if [[ "$exitcode" != "0" ]]; then
     # Domain validation failed, no point continuring further
     echo 1 >/tmp/status # For healthcheck
     return 1
