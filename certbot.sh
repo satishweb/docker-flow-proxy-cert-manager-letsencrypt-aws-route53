@@ -306,30 +306,46 @@ __generateProxyUrls() {
 }
 
 __renewCertLoop() {
-  sleep $RENEW_INTERVAL
+  # We need to write cert renew logs to a file for parsing deploy hook message
+  # Presence of deploy hook message will tell us if there was atleast one
+  # certificate renewed
+  CERTLOG_FILE=/tmp/certrenew.log
 
   # After every RENEW_INTERVAL seconds, we will attempt renewal and
   # resend of the certificates to proxy
   while true
   do
+    sleep $RENEW_INTERVAL
     if [[ "${failCount}" == "${maxFailCount}" ]]; then
-      echo "| WARN: We exceed the maximum failures allowed: ${maxFailCount}"
+      echo "| WARN: ${YELLOW}We exceeded the max fails: ${maxFailCount}${NC}"
       echo "|       This container is now unhealthy"
+      break
     fi
     printf "| CERTBOT: ${GREEN}Attempting to ";
     printf "renew certificates for all domains...${NC}\n"
-    eval "$CERTBOT_CMD renew \
+    $CERTBOT_CMD renew \
       -n \
       -agree-tos \
       -m $CERTBOT_EMAIL \
-      -a 'certbot-route53:auth' 2>&1 \
-      | sed 's/^/| CERTBOT: /'"
+      -a 'certbot-route53:auth' \
+      --deploy-hook 'echo CERTMGR_HAS_RENEWED_CERT' 2>&1 \
+      | sed 's/^/| CERTBOT: /' \
+      | tee ${CERTLOG_FILE}
     if [[ "${PIPESTATUS[0]}" != "0" ]]; then
       # Certbot command was failed, we need to retry again
       RENEW_INTERVAL=300
       let failCount++
+      echo "| WARN: Certbot renewal failed: Count = ${failCount}"
+      continue
+    else
+      # We can not depend on exit code status of certbot command.
+      # Deploy hook command is run only when certificate is renewed.
+      # This allows us to write certbot log to a file & grep for deploy hook.
+      chkRenewal=$(cat ${CERTLOG_FILE}|grep -c CERTMGR_HAS_RENEWED_CERT)
+      if [[ "${chkRenewal}" -gt "1" ]]; then
+        __updateProxies "${proxyServerUrls}"
+      fi
     fi
-    __updateProxies "${proxyServerUrls}"
     # Lets reset renew interval and renew certs back to original values
     RENEW_INTERVAL=86400 # 1 day
   done
