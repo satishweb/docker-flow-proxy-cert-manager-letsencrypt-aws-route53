@@ -347,7 +347,7 @@ __renewCertLoop() {
       fi
     fi
     # Lets reset renew interval and renew certs back to original values
-    RENEW_INTERVAL=86400 # 1 day
+    RENEW_INTERVAL=$RENEW_INTERVAL
   done
 }
 
@@ -357,9 +357,9 @@ __printLine() {
 
 ## Main
 
-# maximum number of reTRIES
-MAX_RETRIES=5
-RETRY_INTERVAL=10 # Timeout in seconds for proxy communication retries
+[[ "$PROXY_SEND_MAX_RETRIES" == "" ]] && MAX_RETRIES=5 || MAX_RETRIES=$PROXY_SEND_MAX_RETRIES
+[[ "$PROXY_SEND_RETRY_INTERVAL" == "" ]] && RETRY_INTERVAL=10 || RENEW_INTERVAL=$PROXY_SEND_RETRY_INTERVAL
+[[ "$CERT_RENEW_INTERVAL" == "" ]] && RENEW_INTERVAL=86400 || RENEW_INTERVAL=$CERT_RENEW_INTERVAL
 
 CERTBOT_CMD=certbot
 LE_DIR=/etc/letsencrypt/live
