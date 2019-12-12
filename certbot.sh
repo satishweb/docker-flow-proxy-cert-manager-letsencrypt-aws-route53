@@ -8,16 +8,87 @@ fi
 # Functions
 __validations() {
   if [ "$CERTBOTMODE" ]; then
-    printf "| ${YELLOW}Staging env of Let's Encrypt is activated!${NC}\n";
-    printf "| ${YELLOW}The generated certificates won't be trusted.${NC}\n";
+    printf "$(date) WARN: ${YELLOW}Staging env of Let's Encrypt is activated!${NC}\n";
+    printf "$(date) WARN: ${YELLOW}The generated certificates won't be trusted.${NC}\n";
     args+=("--test-cert");
   fi
 
   # warn user about deprecated CERTBOT_CRON_RENEW variable
   if [[ "$CERTBOT_CRON_RENEW" != "" ]]; then
-    printf "| CERTS: ${YELLOW}CERTBOT_CRON_RENEW is deprecated.\n";
-    printf "         Cerbot script is daemonized and certificate renewal and";
-    printf "         push to proxy is now attempted every 24 hours${NC}\n";
+    printf "$(date) CERTS: ${YELLOW}CERTBOT_CRON_RENEW is deprecated.\n";
+    printf "$(date)        Cron usage is removed, please use ";
+    printf "CERT_RENEW_INTERVAL variable.${NC}\n";
+  fi
+
+  # Check if AWS R53 variables are declared.
+  if [[ "$AWS_ACCESS_KEY_ID" == "" ]]; then
+    printf "$(date) ERR: ${RED}AWS_ACCESS_KEY_ID/AWS_ACCESS_KEY_ID_FILE ";
+    printf "var is not declared${NC}\n";
+    sleep 120 # To avoid to frequent service restarts
+    exit 1
+  fi
+
+  if [[ "$AWS_SECRET_ACCESS_KEY" == "" ]]; then
+    printf "$(date) ERR: ${RED}AWS_SECRET_ACCESS_KEY/";
+    printf "AWS_SECRET_ACCESS_KEY_FILE var is not declared${NC}\n";
+    sleep 120 # To avoid to frequent service restarts
+    exit 1
+  fi
+
+  if [[ "$AWS_HOSTED_ZONE_ID" == "" ]]; then
+    printf "$(date) ERR: ${RED}AWS_HOSTED_ZONE_ID/";
+    printf "AWS_HOSTED_ZONE_ID_FILE var is not declared${NC}\n";
+    sleep 120 # To avoid to frequent service restarts
+    exit 1
+  fi
+
+  if [[ "$AWS_REGION" == "" ]]; then
+    export AWS_REGION=us-east-1
+    printf "$(date) WARN: ${YELLOW}AWS_REGION ";
+    printf "var is not declared, using '${AWS_REGION}' as default${NC}\n";
+  fi
+
+  if [ -z $CERTBOT_EMAIL ]; then
+    printf "$(date) ERR: ${RED}CERTBOT_EMAIL ";
+    printf "var is not declared${NC}\n";
+    sleep 120 # To avoid to frequent service restarts
+    exit 1
+  fi
+
+  if [[ "$PROXY_PORT" == "" ]]; then
+    export PROXY_PORT=8080
+    printf "$(date) WARN: ${YELLOW}PROXY_PORT ";
+    printf "var is not declared, using '${PROXY_PORT}' as default${NC}\n";
+  fi
+
+  if [[ "$PROXY_ADDRESS" == "" ]]; then
+    export PROXY_ADDRESS=proxy
+    printf "$(date) WARN: ${YELLOW}PROXY_ADDRESS ";
+    printf "var is not declared, using '${PROXY_ADDRESS}' as default${NC}\n";
+  fi
+
+  if [[ "$PROXY_SEND_MAX_RETRIES" == "" ]]; then
+    export MAX_RETRIES=5
+    printf "$(date) WARN: ${YELLOW}PROXY_SEND_MAX_RETRIES ";
+    printf "var is not declared, using '${MAX_RETRIES}' as default value${NC}\n";
+  else
+    export MAX_RETRIES=$PROXY_SEND_MAX_RETRIES
+  fi
+
+  if [[ "$PROXY_SEND_RETRY_INTERVAL" == "" ]]; then
+    export RETRY_INTERVAL=10
+    printf "$(date) WARN: ${YELLOW}PROXY_SEND_RETRY_INTERVAL ";
+    printf "var is not declared, using '${RETRY_INTERVAL}' as default value${NC}\n";
+  else
+    export RETRY_INTERVAL=$PROXY_SEND_RETRY_INTERVAL
+  fi
+
+  if [[ "$CERT_RENEW_INTERVAL" == "" ]]; then
+    export RENEW_INTERVAL=86400
+    printf "$(date) WARN: ${YELLOW}CERT_RENEW_INTERVAL ";
+    printf "var is not declared, using '${RENEW_INTERVAL}' as default value${NC}\n";
+  else
+    export RENEW_INTERVAL=$CERT_RENEW_INTERVAL
   fi
 }
 
@@ -25,7 +96,7 @@ __generateCombinedCert() {
   # $1 = Domain
 
   if [[ "$1" == "" ]]; then
-    echo "| ${RED}ERR: __generateCombinedCert: Missing params${NC}"
+    printf "$(date) ${RED}ERR: __generateCombinedCert: Missing params${NC}\n"
     sleep 120
     exit 1
   fi
@@ -37,8 +108,8 @@ __generateCombinedCert() {
         ${domainCertDir}/privkey.pem \
     > ${domainCertDir}/${1}.combined.pem 2>/dev/null
   else
-    printf "| CERTS: ${1}: ${YELLOW}Domain $certs are not available yet,${NC}\n"
-    printf "|              ${YELLOW}skipping ...${NC}\n"
+    printf "$(date) CERTS: ${1}: ${YELLOW}Domain $certs are not available yet,${NC}\n"
+    printf "$(date)              ${YELLOW}skipping ...${NC}\n"
     # We have a situation, certificates were not available at last certbot run
     # We can not wait for 24 hours for next renewal. So lets renew certs again
     # in 5 mins
@@ -53,7 +124,7 @@ __pushDomainCertToProxy() {
 
   # returns exitcode variable
   if [[ "$2" == "" ]]; then
-    echo "| ${RED}ERR: __pushDomainCertToProxy: Missing params${NC}"
+    printf "$(date) ${RED}ERR: __pushDomainCertToProxy: Missing params${NC}\n"
     sleep 120
     exit 1
   fi
@@ -61,7 +132,7 @@ __pushDomainCertToProxy() {
   for a in $2
   do
     proxyName=$(echo $a|awk -F '[:/]' '{print $4"-"$5}')
-    printf "| CERTS: ${1}:  ${MAGENTA}# ${TRIES}${NC}: ";
+    printf "$(date) CERTS: ${1}:  ${MAGENTA}# ${TRIES}${NC}: ";
     printf "Sending certificate to ${GREEN}${a} ...${NC}";
     curl --silent -i -XPUT \
       --data-binary @${LE_DIR}/${1}/${1}.combined.pem \
@@ -81,7 +152,7 @@ __updateProxies() {
   # $1 = PROXY urls list
 
   if [[ "$1" == "" ]]; then
-    echo "| ERR: ${RED}__updateProxies: Proxy servers url list is empty${NC}"
+    printf "$(date) ERR: ${RED}__updateProxies: Proxy url list is empty${NC}\n"
     sleep 120
     exit 1
   fi
@@ -101,17 +172,17 @@ __updateProxies() {
       __pushDomainCertToProxy "${d}" "$1"
       # above function returns exitcode variable
       if [[ "$exitcode" != "0" ]]; then
-        printf "| CERTS: ${d}: ${RED}At least 1 proxy did not accept ";
+        printf "$(date) CERTS: ${d}: ${RED}At least 1 proxy did not accept ";
         printf "the certificates${NC}\n";
         if [[ "$TRIES" != "$MAX_RETRIES" ]]; then
           sleep ${RETRY_INTERVAL}
         else
-          printf "| CERTS: ${d}: ${GREEN}Exceeded max retries: "
+          printf "$(date) CERTS: ${d}: ${GREEN}Exceeded max retries: "
           printf "${MAX_RETRIES} ${NC}\n";
         fi
       else
-        printf "| CERTS: ${d}: ${GREEN}Certs received by all proxies:${NC}\n";
-        printf "|             ${GREEN}${1} ${NC}\n"
+        printf "$(date) CERTS: ${d}: ${GREEN}Certs received by all proxies:${NC}\n";
+        printf "$(date)             ${GREEN}${1} ${NC}\n"
         break
       fi
     done
@@ -123,7 +194,7 @@ __validateDomainAndGenCerts() {
   # $2 = Label
 
   if [[ "$2" == "" ]]; then
-    echo "| ERR: ${RED}__validateDomainAndGenCerts: Missing params${NC}"
+    printf "$(date) ERR: ${RED}__validateDomainAndGenCerts: Missing params${NC}\n"
     sleep 120
     exit 1
   fi
@@ -140,9 +211,9 @@ __validateDomainAndGenCerts() {
     # It appears that one of the subdomain in list is with a wildcard (*).
     # We expect only one domain in list when wildcard is used.
     # We must exit here as we have a bad input
-    printf "| CERTS: ${2}: ${RED}ERR: This variable got a wildcard domain: ${2}"
+    printf "$(date) CERTS: ${2}: ${RED}ERR: This variable got a wildcard domain: ${2}"
     printf "${NC}\n";
-    printf "| CERTS: ${2}: ${RED}ERR: We expect only one entry when "
+    printf "$(date) CERTS: ${2}: ${RED}ERR: We expect only one entry when "
     printf "wildcard is used${NC}\n"
     sleep 120
     exit 1
@@ -159,28 +230,28 @@ __validateDomainAndGenCerts() {
   do
     TRIES=$[$TRIES+1]
     if [[ -f /tmp/validation_complete_${parentDomain} ]]; then
-      printf "| CERTS: ${2}: ${GREEN}Primary domain already validated: "
+      printf "$(date) CERTS: ${2}: ${GREEN}Primary domain already validated: "
       printf "${parentDomain} ${NC}\n";
       break
     else
-      printf "| CERTS: ${2}: ${GREEN}Primary domain: ${parentDomain} ${NC}\n";
-      printf "| CERTS: ${2}: ${YELLOW}Validating: ${parentDomain} ...${NC}\n";
+      printf "$(date) CERTS: ${2}: ${GREEN}Primary domain: ${parentDomain} ${NC}\n";
+      printf "$(date) CERTS: ${2}: ${YELLOW}Validating: ${parentDomain} ...${NC}\n";
       $CERTBOT_CMD certonly \
         --dry-run "${args[@]}" \
         -d "${parentDomain}" 2>/dev/null \
       | grep -q 'The dry run was successful.'
       exitcode=$?
       if [[ "$exitcode" == "0" ]]; then
-        printf "| CERTS: ${2}: ${GREEN}Domain successfully validated: ";
+        printf "$(date) CERTS: ${2}: ${GREEN}Domain successfully validated: ";
         printf "${parentDomain}${NC}\n"
         touch /tmp/validation_complete_${parentDomain}
         break
       fi
       if [ $TRIES -eq $MAX_RETRIES ]; then
-        printf "| CERTS: ${parentDomain}: ${RED}Unable to verify parent domain";
+        printf "$(date) CERTS: ${parentDomain}: ${RED}Unable to verify parent domain";
         printf " ownership after ${TRIES} attempts.${NC}\n";
       else
-        printf "| CERTS: ${parentDomain}: ${MAGENTA}# ${TRIES}: ";
+        printf "$(date) CERTS: ${parentDomain}: ${MAGENTA}# ${TRIES}: ";
         printf "Unable to verify parent domain ownership. ";
         printf "we will try again in ${RETRY_INTERVAL} seconds.${NC}\n";
         sleep ${RETRY_INTERVAL}
@@ -202,7 +273,7 @@ __validateDomainAndGenCerts() {
     # Ensure parentdomain matches
     pDom="$(echo $i|awk -F '[.]' '{print $(NF-1)"."$(NF)}')"
     if [[ "${pDom}" != "${parentDomain}" ]]; then
-      printf "| CERTS: ${parentDomain}: ${RED}Parent domain do not match ";
+      printf "$(date) CERTS: ${parentDomain}: ${RED}Parent domain do not match ";
       printf "for $i, ignoring...${NC}\n";
       continue
     fi
@@ -231,15 +302,15 @@ __getCertificates() {
     # check if domain Lets encrupt dir path exists, if it exists use
     # --cert-name to prevent 0001 0002 0003 folders
     cbDomArgs=""; for v in $1; do cbDomArgs+=" -d $v"; done
-    printf "| CERTS: ${3}: Using domain(s) for generating certificate:"
+    printf "$(date) CERTS: ${3}: Using domain(s) for generating certificate:"
     printf " ${YELLOW}${1}${NC}\n"
     if [ -d "${LE_DIR}/$2" ]; then
       cbCmd="$CERTBOT_CMD certonly ${args[@]} --cert-name '${2}' ${cbDomArgs}"
     else
       cbCmd="$CERTBOT_CMD certonly ${args[@]} ${cbDomArgs}"
     fi
-    printf "| CERTS: ${3}: CMD: ${MAGENTA}${cbCmd}${NC}\n";
-    eval ${cbCmd} 2>&1 | sed "s/^/| CERTS: ${3}: CERTBOT: /"
+    printf "$(date) CERTS: ${3}: CMD: ${MAGENTA}${cbCmd}${NC}\n";
+    eval ${cbCmd} 2>&1 | sed "s/^/$(date) CERTS: ${3}: CERTBOT: /"
   fi
 }
 
@@ -256,7 +327,7 @@ __processDomainEnvVarsAndGenCerts() {
     varName=$(echo $d|awk -F '[=]' '{print $1}')
     varValue=$(echo $d|sed "s/^${varName}=//")
     if [[ "$varValue" == "" ]]; then
-      printf "| CERTS: ${YELLOW}${varName} value is empty, ignoring${NC}\n";
+      printf "$(date) CERTS: ${YELLOW}${varName} value is empty, ignoring${NC}\n";
       continue
     fi
     __validateDomainAndGenCerts "$varValue" "$varName"
@@ -270,7 +341,7 @@ __generateProxyUrls() {
   # Returns ${proxyServerUrls}
 
   if [[ "$1" == "" ]]; then
-    echo "| ERR: ${RED}__generateProxyUrls: Missing params${NC}"
+    printf "$(date) ERR: ${RED}__generateProxyUrls: Missing params${NC}\n"
     sleep 120
     exit 1
   fi
@@ -293,7 +364,7 @@ __generateProxyUrls() {
       host=$(echo $i|awk -F '[:]' '{print $1}')
       port=$(echo $i|awk -F '[:]' '{print $2}')
       if ! [[ $port =~ ^[0-9]+$ ]]; then
-        echo "| ${RED}ERR: Proxy server has invalid port: ${a}${NC}"
+        printf "$(date) ${RED}ERR: Proxy server has invalid port: ${a}${NC}\n"
         sleep 120
         exit 1
       fi
@@ -317,25 +388,26 @@ __renewCertLoop() {
   do
     sleep $RENEW_INTERVAL
     if [[ "${failCount}" == "${maxFailCount}" ]]; then
-      echo "| WARN: ${YELLOW}We exceeded the max fails: ${maxFailCount}${NC}"
-      echo "|       This container is now unhealthy"
+      printf "$(date) WARN: ${YELLOW}We exceeded max fails: ${maxFailCount}${NC}\n"
+      printf "$(date)       This container is now unhealthy"
       break
     fi
-    printf "| CERTBOT: ${GREEN}Attempting to ";
-    printf "renew certificates for all domains...${NC}\n"
+    printf "$(date) CERTBOT: ${GREEN}Attempting to renew certificates for all ";
+    printf "domains...${NC}\n"
     $CERTBOT_CMD renew \
       -n \
       -agree-tos \
       -m $CERTBOT_EMAIL \
       -a 'certbot-route53:auth' \
       --deploy-hook 'echo CERTMGR_HAS_RENEWED_CERT' 2>&1 \
-      | sed 's/^/| CERTBOT: /' \
+      | sed "s/^/$(date) CERTBOT: /" \
       | tee ${CERTLOG_FILE}
     if [[ "${PIPESTATUS[0]}" != "0" ]]; then
       # Certbot command was failed, we need to retry again
       RENEW_INTERVAL=300
       let failCount++
-      echo "| WARN: Certbot renewal failed: Count = ${failCount}"
+      printf "$(date) WARN: ${YELLOW}Certbot renewal failed: "
+      printf "Count #${failCount}${NC}\n"
       continue
     else
       # We can not depend on exit code status of certbot command.
@@ -351,27 +423,44 @@ __renewCertLoop() {
   done
 }
 
-__printLine() {
-  printf "|----------------------------------------------------------------\n";
+__checkCertmgrMode() {
+  # Disable certbot if CERTBOT_DISABLE is defined
+  if [[ "$CERTMGR_DISABLE" == "" ]]; then
+    printf "$(date) INFO: ${RED}Certificate manager is enabled.${NC}\n";
+  else
+    printf "$(date) ERR: ${RED}CERTMGR_DISABLE variable is declared, \n";
+    printf "$(date)             ${RED}To avoid container relaunches, ";
+    printf "i will sleep forever${NC}\n";
+    printf "$(date)             ${YELLOW}To enable certificate management,${NC}\n";
+    printf "$(date)             ${YELLOW}please remove CERTMGR_DISABLE env${NC}\n";
+    printf "$(date)             ${YELLOW}variable arg from docker run cmd${NC}\n";
+    printf "$(date)             ${YELLOW}or stack and start again${NC}\n";
+    # Set container status to healthy to avoid service restarts when intention
+    # was to just disable certificate manager
+    while true; do sleep 10000; done
+  fi
 }
 
 ## Main
 
-[[ "$PROXY_SEND_MAX_RETRIES" == "" ]] && MAX_RETRIES=5 || MAX_RETRIES=$PROXY_SEND_MAX_RETRIES
-[[ "$PROXY_SEND_RETRY_INTERVAL" == "" ]] && RETRY_INTERVAL=10 || RENEW_INTERVAL=$PROXY_SEND_RETRY_INTERVAL
-[[ "$CERT_RENEW_INTERVAL" == "" ]] && RENEW_INTERVAL=86400 || RENEW_INTERVAL=$CERT_RENEW_INTERVAL
+# Colors
+export RED='\033[1m\033[31m'
+export GREEN='\033[1m\033[32m'
+export YELLOW='\033[1m\033[33m'
+export MAGENTA='\033[1m\033[35m'
+export CYAN='\033[1m\033[36m'
+export NC='\033[0m' # No Color
 
 CERTBOT_CMD=certbot
 LE_DIR=/etc/letsencrypt/live
 
+__checkCertmgrMode
 __validations
 # common arguments
 args=("-n" "-m" "$CERTBOT_EMAIL" "--agree-tos" "-a" "certbot-route53:auth" \
       "--rsa-key-size" "4096" "--redirect" "--hsts" "--staple-ocsp")
-__printLine
-printf "| INFO: ${GREEN}Let's Encrypt started${NC}\n";
-printf "| INFO: I will use $CERTBOT_EMAIL for registration with Lets Encrypt.\n";
-__printLine
+printf "$(date) INFO: ${GREEN}Let's Encrypt Certificate Manager started${NC}\n";
+printf "$(date) INFO: I will use $CERTBOT_EMAIL for registration with Lets Encrypt.\n";
 
 # we need to be careful and don't reach the rate limits of Let's Encrypt
 # https://letsencrypt.org/docs/rate-limits/
@@ -386,8 +475,7 @@ rm -rf /tmp/validation_complete* >/dev/null 2>&1
 __processDomainEnvVarsAndGenCerts "$(env | grep 'DOMAIN_')"
 __updateProxies "${proxyServerUrls}"
 
-RENEW_INTERVAL=86400 # 1 day
-maxFailCount=10 # We will mark this container as unhealthy if we exceed this
+maxFailCount=$MAX_RETRIES
 failCount=0
 __renewCertLoop # This is an endless loop
 exit 1 # We dont expect script to reach here.

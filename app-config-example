@@ -5,7 +5,7 @@
 set -e
 
 ## Custmizations
-# Here you can manipulate your configuration files before unbound is started
+# Here you can manipulate your configuration files before cert manager is started
 # You can pretty much do anything here
 # Please read /docker-entrypoint script before writing any code here
 

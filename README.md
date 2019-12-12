@@ -2,8 +2,7 @@
 
 ## Features
 - Integration with LetsEncrypt and AWS Route53 DNS for Docker Flow Proxy (https://proxy.dockerflow.com/)
-- Inspired by: https://github.com/hamburml/docker-flow-letsencrypt
-- Cronjob to renew certificate every day if certificate is near expiry
+- Support for renewing certificate automatically at given interval if certificate is near expiry
 - Support for custom script execution (/app-config)
 - Support for linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6
 - Alpine based tiny images
@@ -17,6 +16,9 @@ docker run --rm -it --name cert-manager \
     -e DOMAIN_3="*.satishweb.com"\
     -e CERTBOT_EMAIL="webmaster@satishweb.com" \
     -e PROXY_ADDRESS="proxy" \
+    -e PROXY_SEND_MAX_RETRIES="10" \
+    -e PROXY_SEND_RETRY_INTERVAL="30" \
+    -e CERT_RENEW_INTERVAL="86400" \
     -e CERTBOTMODE="staging" \
     -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} \
     -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} \
@@ -36,6 +38,9 @@ satishweb/docker-flow-proxy-cert-manager-letsencrypt-aws-route53:latest
     - `proxy`: Hostname of Docker Flow Proxy. It must be accessible from container
     - `proxy.domain.com`: FQDN of Docker Flow Proxy
     - `http://proxy:8080/v1/docker-flow-proxy/cert`: API url for Docker Flow Proxy
+- `PROXY_SEND_MAX_RETRIES`: Number of attempts to make to send certs to proxy
+- `PROXY_SEND_RETRY_INTERVAL`: Delay between two attempts for sending certs to proxy
+- `CERT_RENEW_INTERVAL`: Interval in seconds for checking for certificate renewal
 - `CERTBOTMODE`: Declare this variable and lets encrypt goes into stage/test mode
 - `AWS_ACCESS_KEY_ID`: AWS Access Key from AWS Console - IAM
 - `AWS_SECRET_ACCESS_KEY`: AWS Secret Key from AWS Console - IAM
@@ -58,6 +63,9 @@ satishweb/docker-flow-proxy-cert-manager-letsencrypt-aws-route53:latest
       - DOMAIN_3="*.satishweb.com"
       - CERTBOT_EMAIL=webmaster@satishweb.com
       - PROXY_ADDRESS=proxy
+      - PROXY_SEND_MAX_RETRIES: "10"
+      - PROXY_SEND_RETRY_INTERVAL: "30"
+      - CERT_RENEW_INTERVAL: "86400"
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - AWS_REGION=${AWS_REGION}
@@ -98,6 +106,9 @@ docker run --rm -it --name cert-manager \
     -e DOMAIN_3="*.satishweb.com"\
     -e CERTBOT_EMAIL="webmaster@satishweb.com" \
     -e PROXY_ADDRESS="proxy" \
+    -e PROXY_SEND_MAX_RETRIES="10" \
+    -e PROXY_SEND_RETRY_INTERVAL="30" \
+    -e CERT_RENEW_INTERVAL="86400" \
     -e CERTBOTMODE="staging" \
     -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} \
     -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} \
@@ -108,3 +119,6 @@ docker run --rm -it --name cert-manager \
     -v $(pwd)/certbot.sh:/certbot.sh \
 satishweb/docker-flow-proxy-cert-manager-letsencrypt-aws-route53:latest
 ```
+
+## Credits:
+- Inspired by: https://github.com/hamburml/docker-flow-letsencrypt
