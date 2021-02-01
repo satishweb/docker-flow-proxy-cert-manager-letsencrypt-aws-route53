@@ -12,6 +12,7 @@ RUN apk --no-cache add \
         openssl-dev \
         libffi-dev \
         python3-dev \
+        py3-pip \
     && pip3 install --upgrade pip \
     && pip3 install acme==0.40.0 \
     && pip3 install certbot-dns-route53 \
